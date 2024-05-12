@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Heist</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('/assets/bg.jpg');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+              overflow: hidden;
+
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            width: 150px;
+            height: auto;
+        }
+
+        h1 {
+            color: white;
+            background-color: #bd501d
+;
+        }
+
+        main {
+            text-align: center;
+        }
+
+        canvas {
+            border: 1px solid #333;
+            background-image: linear-gradient(to bottom right, #61d9dc, black);
+            touch-action: none;
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #bd501d
+;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .store-badge {
+            width: 120px;
+            height: auto;
+            margin: 0 10px;
+        }
+
+        #mobileControls {
+            margin-top: 20px;
+        }
+
+        #mobileControls button {
+            font-size: 24px;
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #e5cf7f;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 120px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -60px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+    </style>
+</head>
+<body>
+    <header>
+        <img src="/assets/logo.jpg" alt="Game Logo" class="logo">
+        <h1>Crypto Heist</h1>
+    </header>
+    <audio id="alarmSound" src="/assets/sounds/alarm.mp3"></audio>
+    <audio id="coinSound" src="/assets/sounds/coin.mp3"></audio>
+
+    <main>
+        <canvas id="gameCanvas" width="800" height="400" tabindex="0" aria-label="Game Canvas"></canvas>
+        <div class="button-container">
+            <button id="startButton">Start Game</button>
+            <button id="resetButton" disabled>Reset Game</button>
+        </div>
+
+        <div id="mobileControls">
+            <button id="leftButton">←</button>
+            <button id="rightButton">→</button>
+            <button id="jumpButton">Jump</button>
+            <button id="crouchButton">Crouch</button>
+        </div>
+    </main>
+
+    <footer>
+        <a href="" target="_blank" rel="noopener noreferrer" class="tooltip">
+            <img src="https://1000logos.net/wp-content/uploads/2020/08/apple-app-store-logo.jpg" alt="Download on App Store" class="store-badge">
+            <span class="tooltip-text">Coming Soon </span>
+        </a>
+        <a href="" target="_blank" rel="noopener noreferrer" class="tooltip">
+            <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" class="store-badge">
+            <span class="tooltip-text">Coming Soon</span>
+        </a>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const coinImage = new Image();
+        coinImage.src = 'https://cdn.pixabay.com/photo/2012/04/12/11/10/coins-29516_1280.png';
+
+        const guardImage = new Image();
+        guardImage.src = '/assets/ai-generated-8307272_1920.png';
+
+        const alarmSound = document.getElementById('alarmSound');
+        const coinSound = document.getElementById('coinSound');
+         const backgroundColors = [
+            ['#0c1c3c', '#1a2e5a'], // Level 1: Dark blue
+            ['#0c3c1c', '#1a5a2e'], // Level 2: Dark green
+            ['#1c0c3c', '#2e1a5a'], // Level 3: Dark purple
+            ['#3c1c0c', '#5a2e1a'], // Level 4: Dark red
+            ['#3c3c0c', '#5a5a1a']  // Level 5: Dark yellow
+        ];
+
+        // Game variables
+        let score = 0;
+        let gameLoop;
+        const coinSpeed = 2;
+        const guardSpeed = 3;
+        let level = 1;
+      let coinChances = 2;
+
+        // Player character
+        const player = {
+           x: 50,
+            y: canvas.height / 2,
+            width: 50,
+            height: 50,
+            speed: 10,
+            jumpForce: 20,
+            isJumping: false,
+            isCrouching: false,
+            image: new Image()
+        };
+        player.image.src = '/assets/crook.png';
+
+        // Arrays to store coins and guards
+      let coin = null;
+        const coins = [];
+        const guards = [];
+
+        // Event listeners for player movement
+        document.addEventListener('keydown', handlePlayerMovement);
+        document.addEventListener('keyup', handlePlayerMovement);
+
+        // Game loop
+        function startGame() {
+            gameLoop = setInterval(updateGame, 20);
+            resetLevel();
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('resetButton').disabled = false;
+        }
+
+        function resetGame() {
+            clearInterval(gameLoop);
+            level = 1;
+            score = 0;
+            coins.length = 0;
+          coin = null;
+            guards.length = 0;
+            x: 50,
+            player.y = canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('resetButton').disabled = true;
+        }
+      
+      function resetLevel() {
+            coin = null;
+            coinChances = 2;
+            guards.length = 0;
+            player.x = 50;
+            player.y = canvas.height / 2;
+            spawnCoin();
+            spawnGuards();
+            generateBackgroundPrompt();
+
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw gradient background
+          // Draw background
+            const backgroundColor = backgroundColors[Math.min(level - 1, backgroundColors.length - 1)];
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);            
+           gradient.addColorStop(0, backgroundColor[0]);
+            gradient.addColorStop(1, backgroundColor[1]);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw maze
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(100, 0);
+            ctx.lineTo(100, canvas.height);
+            ctx.moveTo(canvas.width - 100, 0);
+            ctx.lineTo(canvas.width - 100, canvas.height);
+            ctx.stroke();
+
+            // Draw player
+            ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+
+            // Draw coin
+            if (coin) {
+                ctx.drawImage(coinImage, coin.x, coin.y, coin.width, coin.height);
+
+                // Check collision with player
+                if (checkCollision(player, coin)) {
+                    coinSound.play();
+                    score++;
+                    coin = null;
+                    coinChances--;
+
+                    if (coinChances === 0) {
+                        level++;
+                        resetLevel();
+                    } else {
+                        spawnCoin();
+                    }
+                }
+            }
+
+            // Draw guards
+            guards.forEach(guard => {
+                ctx.drawImage(guardImage, guard.x, guard.y, guard.width, guard.height);
+
+                // Move guards vertically
+                guard.y += guard.speed;
+
+                // Reverse guard direction if it reaches the top or bottom of the canvas
+                if (guard.y <= 0 || guard.y >= canvas.height - guard.height) {
+                    guard.speed *= -1;
+                }
+
+                // Check collision with player
+                if (checkCollision(player, guard)) {
+                    alarmSound.play();
+                    gameOver();
+                }
+            });
+
+            // Check if player reaches the end of the level
+            if (player.x >= canvas.width - player.width) {
+                level++;
+                resetLevel();
+            }
+
+            // Draw score and level
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`Level: ${level}`, canvas.width - 70, 30);
+        }
+
+        function spawnCoins() {
+            for (let i = 0; i < level; i++) {
+                const coin = {
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: Math.random() * (canvas.height - 20),
+                    width: 20,
+                    height: 20
+                };
+                coins.push(coin);
+            }
+        }
+      function spawnCoin() {
+            const x = Math.random() * (canvas.width - 200) + 100;
+            const y = Math.random() * (canvas.height - 20);
+            coin = {
+                x: x,
+                y: y,
+                width: 20,
+                height: 20
+            };
+
+            setTimeout(() => {
+                coin = null;
+                if (coinChances > 0) {
+                    spawnCoin();
+                }
+            }, 3000);
+        }
+
+        function spawnGuards() {
+          const numGuards = level + 2; // Increase the number of guards based on the level
+            const guardPositions = [];
+            for (let i = 0; i < numGuards; i++) {
+                const x = 150 + (i * (canvas.width - 250) / (numGuards - 1));
+                const y = Math.random() * (canvas.height - 20);
+                guardPositions.push({ x, y });
+            }
+
+            // Create guards at the generated positions
+            guardPositions.forEach(position => {
+                const guard = {
+                    x: position.x,
+                    y: position.y,
+                    width: 20,
+                    height: 20,
+                    speed: Math.random() < 0.5 ? guardSpeed : -guardSpeed
+                };
+                guards.push(guard);
+            });
+        }
+
+        function handlePlayerMovement(event) {
+            switch (event.key) {
+                case 'ArrowLeft':
+                    player.x -= player.speed;
+                    break;
+                case 'ArrowRight':
+                    player.x += player.speed;
+                    break;
+                case 'ArrowUp':
+                    player.y -= player.speed;
+                    break;
+                case 'ArrowDown':
+                    player.y += player.speed;
+                    break;
+            }
+           // Keep player within canvas bounds
+            player.x = Math.max(0, Math.min(player.x, canvas.width - player.width));
+            player.y = Math.max(0, Math.min(player.y, canvas.height - player.height));
+        }
+
+        function checkCollision(obj1, obj2) {
+            return (
+                obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.width > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj1.height > obj2.y
+            );
+        }
+
+        function gameOver() {
+            clearInterval(gameLoop);
+            ctx.fillStyle = 'black';
+            ctx.font = '30px Arial';
+            ctx.fillText('Game Over', canvas.width / 2 - 60, canvas.height / 2);
+            document.getElementById('resetButton').disabled = false;
+        }
+      
+      
+      function generateBackgroundPrompt() {
+            const promptElement = document.createElement('div');
+            promptElement.textContent = `Level ${level}`;
+            promptElement.style.position = 'absolute';
+            promptElement.style.top = '50%';
+            promptElement.style.left = '50%';
+            promptElement.style.transform = 'translate(-50%, -50%)';
+            promptElement.style.fontSize = '48px';
+            promptElement.style.fontWeight = 'bold';
+            promptElement.style.color = 'white';
+            promptElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+            promptElement.style.zIndex = '9999';
+            document.body.appendChild(promptElement);
+
+            setTimeout(() => {
+                document.body.removeChild(promptElement);
+            }, 2000);
+        }
+
+        // Event listeners for start and reset buttons
+        document.getElementById('startButton').addEventListener('click', () => {
+            handleMobileControls();
+            startGame();
+        });
+        document.getElementById('resetButton').addEventListener('click', resetGame);
+
+        // Event listeners for player movement
+        document.addEventListener('keydown', handlePlayerMovement);
+        document.addEventListener('keyup', handlePlayerMovement);
+
+        // Mobile Controls
+        const mobileControls = document.getElementById('mobileControls');
+        const leftButton = document.getElementById('leftButton');
+        const rightButton = document.getElementById('rightButton');
+        const jumpButton = document.getElementById('jumpButton');
+        const crouchButton = document.getElementById('crouchButton');
+
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        function showMobileControls() {
+            mobileControls.style.display = 'block';
+        }
+
+        function hideMobileControls() {
+            mobileControls.style.display = 'none';
+        }
+
+        function handleMobileControls() {
+            if (isMobileDevice()) {
+                showMobileControls();
+            } else {
+                showMobileControls(); // Show mobile controls on desktop for testing
+            }
+        }
+
+        function movePlayerLeft() {
+            if (player.x > 0) {
+                player.x -= player.speed;
+            }
+        }
+
+        function movePlayerRight() {
+            if (player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+        }
+
+        function jump() {
+            if (!player.isJumping) {
+                player.isJumping = true;
+                player.y -= player.jumpForce;
+            }
+        }
+
+        function crouch() {
+            if (!player.isCrouching) {
+                player.isCrouching = true;
+                player.height /= 2;
+                player.y += player.height;
+            }
+        }
+
+        function uncrouch() {
+            if (player.isCrouching) {
+                player.isCrouching = false;
+                player.y -= player.height;
+                player.height *= 2;
+            }
+        }
+
+        leftButton.addEventListener('mousedown', movePlayerLeft);
+        leftButton.addEventListener('touchstart', movePlayerLeft);
+
+        rightButton.addEventListener('mousedown', movePlayerRight);
+        rightButton.addEventListener('touchstart', movePlayerRight);
+
+        jumpButton.addEventListener('mousedown', jump);
+        jumpButton.addEventListener('touchstart', jump);
+
+        crouchButton.addEventListener('mousedown', crouch);
+        crouchButton.addEventListener('touchstart', crouch);
+
+        crouchButton.addEventListener('mouseup', uncrouch);
+        crouchButton.addEventListener('touchend', uncrouch);
+      
+      document.addEventListener('DOMContentLoaded', function() {
+    document.body.style.overflow = 'hidden';
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+    }
+});
+    </script>
+</body>
+</html>
