@@ -48,6 +48,7 @@
             width: 100%;
             max-width: 400px;
             height: auto;
+            opacity: 90%;
         }
 
         .button-container {
@@ -127,6 +128,27 @@
     visibility: visible;
     opacity: 1;
 }
+
+.audio-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .mute-button {
+            background-color: #fff;
+            border: none;
+            padding: 5px 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .volume-slider {
+            width: 100px;
+        }
     </style>
 </head>
 <body>
@@ -134,8 +156,16 @@
         <img src="/assets/logo.jpg" alt="Game Logo" class="logo">
         <h1>Crypto Heist</h1>
     </header>
+    <div class="audio-controls">
+        <button id="muteButton" class="mute-button">Mute</button>
+        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.1" value="1">
+    </div>
     <audio id="alarmSound" src="/assets/sounds/alarm.mp3"></audio>
     <audio id="coinSound" src="/assets/sounds/coin.mp3"></audio>
+    <audio id="soundtrackAudio" loop>
+        <source src="assets/lady-of-the-80x27s-128379.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
 
     <main>
         <canvas id="gameCanvas" width="800" height="400" tabindex="0" aria-label="Game Canvas"></canvas>
@@ -147,9 +177,10 @@
         <div id="mobileControls">
             <button id="leftButton">←</button>
             <button id="rightButton">→</button>
-            <button id="jumpButton">Jump</button>
+            <!-- <button id="jumpButton">Jump</button> -->
             <button id="crouchButton">Crouch</button>
         </div>
+        
     </main>
 
     <footer>
@@ -171,10 +202,12 @@
         coinImage.src = 'https://cdn.pixabay.com/photo/2012/04/12/11/10/coins-29516_1280.png';
 
         const guardImage = new Image();
-        guardImage.src = '/assets/ai-generated-8307272_1920.png';
+        guardImage.src = '/assets/guard.png';
 
         const alarmSound = document.getElementById('alarmSound');
         const coinSound = document.getElementById('coinSound');
+        const soundtrackAudio = document.getElementById('soundtrackAudio');
+
          const backgroundColors = [
             ['#0c1c3c', '#1a2e5a'], // Level 1: Dark blue
             ['#0c3c1c', '#1a5a2e'], // Level 2: Dark green
@@ -182,6 +215,25 @@
             ['#3c1c0c', '#5a2e1a'], // Level 4: Dark red
             ['#3c3c0c', '#5a5a1a']  // Level 5: Dark yellow
         ];
+
+        soundtrackAudio.volume = 0.2;
+
+        const muteButton = document.getElementById('muteButton');
+        const volumeSlider = document.getElementById('volumeSlider');
+
+        muteButton.addEventListener('click', () => {
+            if (soundtrackAudio.muted) {
+                soundtrackAudio.muted = false;
+                muteButton.textContent = 'Mute';
+            } else {
+                soundtrackAudio.muted = true;
+                muteButton.textContent = 'Unmute';
+            }
+        });
+
+        volumeSlider.addEventListener('input', () => {
+            soundtrackAudio.volume = volumeSlider.value;
+        });
 
         // Game variables
         let score = 0;
@@ -203,7 +255,7 @@
             isCrouching: false,
             image: new Image()
         };
-        player.image.src = '/assets/crook.png';
+        player.image.src = '/assets/player.png';
 
         // Arrays to store coins and guards
       let coin = null;
@@ -220,6 +272,8 @@
             resetLevel();
             document.getElementById('startButton').disabled = true;
             document.getElementById('resetButton').disabled = false;
+            soundtrackAudio.play(); // Start playing the soundtrack
+
         }
 
         function resetGame() {
@@ -234,6 +288,8 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('startButton').disabled = false;
             document.getElementById('resetButton').disabled = true;
+            soundtrackAudio.pause(); // Pause the soundtrack
+            soundtrackAudio.currentTime = 0;
         }
       
       function resetLevel() {
